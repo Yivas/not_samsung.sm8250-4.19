@@ -26,6 +26,7 @@ jobs:
         env:
           DEVICE: r8q
         run: |
+          set -o pipefail
           chmod +x build.sh
           ./build.sh 2>&1 | tee /tmp/build.log
 
