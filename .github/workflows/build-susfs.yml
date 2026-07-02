@@ -1,0 +1,70 @@
+name: build-susfs
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout susfs-work (submodulos)
+        uses: actions/checkout@v4
+        with:
+          ref: susfs-work
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Entorno (como el maintainer)
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Build r8q
+        id: build
+        env:
+          DEVICE: r8q
+        run: |
+          chmod +x build.sh
+          ./build.sh 2>&1 | tee /tmp/build.log
+
+      - name: Verificar susfs en Image
+        if: always()
+        run: |
+          IMG=$(find out -name Image -type f 2>/dev/null | head -1)
+          echo "Image: $IMG"
+          if [ -n "$IMG" ]; then
+            echo "=== susfs hits ==="; strings -n 4 "$IMG" | grep -ciE 'susfs|sus_path|sus_mount|sus_kstat' || true
+            echo "=== kernelsu hits ==="; strings -n 4 "$IMG" | grep -ci kernelsu || true
+            echo "=== muestra susfs strings ==="; strings -n 4 "$IMG" | grep -iE 'susfs' | head -20 || true
+            file "$IMG"
+          else
+            echo "NO Image (fallo de compilacion)"
+          fi
+          echo "=== CONFIG_KSU_SUSFS en .config ==="
+          grep -E 'CONFIG_KSU_SUSFS' out/.config 2>/dev/null | head -30 || echo "sin .config"
+
+      - name: Cola del build.log (errores)
+        if: always()
+        run: tail -n 120 /tmp/build.log 2>/dev/null || true
+
+      - name: Subir zip + Image
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-susfs-r8q
+          path: |
+            not-CI-*.zip
+            out/arch/arm64/boot/Image
+          if-no-files-found: warn
+
+      - name: Subir logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            /tmp/build.log
+            out/.config
+          if-no-files-found: warn
