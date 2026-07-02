@@ -2575,8 +2575,10 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
 		}
 		if (arg2 == CMD_SUSFS_RUN_UMOUNT_FOR_CURRENT_MNT_NS) {
 			int error = 0;
-			susfs_run_try_umount_for_current_mnt_ns();
+			/* susfs.h v1.5.5 no expone run_try_umount_for_current_mnt_ns(); usar API real */
+			susfs_try_umount(current_uid().val);
 			pr_info("susfs: CMD_SUSFS_RUN_UMOUNT_FOR_CURRENT_MNT_NS -> ret: %d\n", error);
+			return 0;
 		}
 #endif //#ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
 #ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
