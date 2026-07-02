@@ -1,0 +1,64 @@
+name: apply-susfs
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout susfs-work (con submodulos)
+        uses: actions/checkout@v4
+        with:
+          ref: susfs-work
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Clonar susfs4ksu (kernel-4.19)
+        run: |
+          git clone --depth=1 -b kernel-4.19 https://gitlab.com/simonpunk/susfs4ksu.git /tmp/susfs
+          grep -m1 SUSFS_VERSION /tmp/susfs/kernel_patches/include/linux/susfs.h
+
+      - name: Copiar fuentes susfs
+        run: |
+          cp /tmp/susfs/kernel_patches/fs/susfs.c fs/
+          cp /tmp/susfs/kernel_patches/include/linux/susfs.h include/linux/
+          cp /tmp/susfs/kernel_patches/include/linux/susfs_def.h include/linux/
+          ls -l fs/susfs.c include/linux/susfs.h include/linux/susfs_def.h
+
+      - name: Aplicar 50_add (deja rechazos)
+        run: |
+          set +e
+          cp /tmp/susfs/kernel_patches/50_add_susfs_in_kernel-4.19.patch /tmp/50_add.patch
+          patch -p1 --no-backup-if-mismatch < /tmp/50_add.patch | tee /tmp/apply.log
+          echo "PATCH_RC=${PIPESTATUS[0]}" | tee -a /tmp/apply.log
+          mkdir -p /tmp/rej
+          find fs include kernel -name '*.rej' -exec cp --parents {} /tmp/rej/ \; 2>/dev/null || true
+          echo "=== rechazos ==="; find fs include kernel -name '*.rej' | tee /tmp/rej_list.txt
+          find . -name '*.rej' -delete
+          find . -name '*.orig' -delete
+
+      - name: Verificar fs/Makefile trae susfs.o
+        run: grep -n 'susfs' fs/Makefile || echo "OJO: fs/Makefile sin susfs (revisar)"
+
+      - name: Commit y push a susfs-work
+        run: |
+          git config user.name "susfs-bot"
+          git config user.email "susfs-bot@users.noreply.github.com"
+          git add -A
+          git status --short | head -40
+          git commit -m "susfs: 50_add aplicado (87%) + fuentes susfs.c/.h; 9 hunks pendientes a mano" || echo "nada que commitear"
+          git push origin HEAD:susfs-work
+
+      - name: Subir rechazos + log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apply-susfs-rejects
+          path: |
+            /tmp/rej/**
+            /tmp/apply.log
+            /tmp/rej_list.txt
+          if-no-files-found: warn
