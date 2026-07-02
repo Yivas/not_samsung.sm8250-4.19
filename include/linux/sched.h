@@ -1484,8 +1484,15 @@ struct task_struct {
 	ANDROID_KABI_RESERVE(3);
 	ANDROID_KABI_RESERVE(4);
 	ANDROID_KABI_RESERVE(5);
-	ANDROID_KABI_RESERVE(6);
+#if defined(CONFIG_KSU_SUSFS)
+	ANDROID_KABI_USE(6, u64 susfs_task_state);
 #else
+	ANDROID_KABI_RESERVE(6);
+#endif // #if defined(CONFIG_KSU_SUSFS)
+#else
+#if defined(CONFIG_KSU_SUSFS)
+	u64 susfs_task_state;
+#endif
 	struct mutex			futex_exit_mutex;
 #endif
 
