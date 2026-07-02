@@ -1,5 +1,4 @@
 name: apply-susfs
-# re-parse
 on:
   workflow_dispatch:
 
@@ -42,7 +41,8 @@ jobs:
           find . -name '*.orig' -delete
 
       - name: Verificar fs/Makefile trae susfs.o
-        run: grep -n 'susfs' fs/Makefile || echo "OJO: fs/Makefile sin susfs (revisar)"
+        run: |
+          grep -n 'susfs' fs/Makefile || echo "OJO fs/Makefile sin susfs, revisar"
 
       - name: Commit y push a susfs-work
         run: |
