@@ -16,7 +16,7 @@
 #include <linux/susfs.h>
 #include "mount.h"
 
-static spinlock_t susfs_spin_lock;
+static DEFINE_SPINLOCK(susfs_spin_lock); /* susfs: init en compile-time; susfs_init() no tiene caller en el porte desacoplado */
 
 extern bool susfs_is_current_ksu_domain(void);
 #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
