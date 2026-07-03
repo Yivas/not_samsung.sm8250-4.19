@@ -12,6 +12,9 @@
 #include <linux/cred.h>
 #include <linux/slab.h>
 #include <linux/sched.h>
+#ifdef CONFIG_KSU_SUSFS
+#include <linux/susfs_def.h>
+#endif
 #include <linux/sched/coredump.h>
 #include <linux/key.h>
 #include <linux/keyctl.h>
@@ -428,6 +431,18 @@ int commit_creds(struct cred *new)
 {
 	struct task_struct *task = current;
 	const struct cred *old = task->real_cred;
+
+#ifdef CONFIG_KSU_SUSFS
+	/* susfs: el setter original del flag vivia en ksu_handle_setuid (10_enable, descartado).
+	 * Se porta desacoplado aqui: commit_creds() corre en cada transicion de uid (zygote->app).
+	 * Marca procesos de app de usuario no-root para que sus_path/sus_kstat actuen sobre ellos.
+	 * appid Android = uid % AID_USER_OFFSET(100000) en [10000, 19999]. Isolated (>=90000) excluidos. */
+	{
+		uid_t susfs_appid = new->uid.val % 100000;
+		if (susfs_appid >= 10000 && susfs_appid <= 19999)
+			task->susfs_task_state |= TASK_STRUCT_NON_ROOT_USER_APP_PROC;
+	}
+#endif
 
 	kdebug("commit_creds(%p{%d,%d})", new,
 	       atomic_read(&new->usage),
