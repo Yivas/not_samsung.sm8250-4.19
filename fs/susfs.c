@@ -653,7 +653,7 @@ out_free_pathname:
 
 /* spoof_uname */
 #ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
-static spinlock_t susfs_uname_spin_lock;
+static DEFINE_SPINLOCK(susfs_uname_spin_lock); /* susfs: init compile-time (susfs_init sin caller); consistente con susfs_spin_lock */
 static struct st_susfs_uname my_uname;
 static void susfs_my_uname_init(void) {
 	memset(&my_uname, 0, sizeof(my_uname));
