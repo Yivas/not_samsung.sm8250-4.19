@@ -622,6 +622,14 @@ static void s_stop(struct seq_file *m, void *p)
 {
 }
 
+#ifdef CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS
+static bool susfs_hide_kallsyms_name(const char *name)
+{
+	return strstr(name, "ksu_") || !strncmp(name, "susfs_", 6) ||
+	       !strncmp(name, "ksud", 4);
+}
+#endif
+
 static int s_show(struct seq_file *m, void *p)
 {
 	void *value;
@@ -630,6 +638,10 @@ static int s_show(struct seq_file *m, void *p)
 	/* Some debugging symbols have no name.  Ignore them. */
 	if (!iter->name[0])
 		return 0;
+#ifdef CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS
+	if (susfs_hide_kallsyms_name(iter->name))
+		return 0;
+#endif
 
 	value = iter->show_value ? (void *)iter->value : NULL;
 
@@ -645,18 +657,8 @@ static int s_show(struct seq_file *m, void *p)
 		seq_printf(m, "%px %c %s\t[%s]\n", value,
 			   type, iter->name, iter->module_name);
 	} else
-#ifndef CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS
 		seq_printf(m, "%px %c %s\n", value,
 			   iter->type, iter->name);
-#else
-	{
-		if (strstr(iter->name, "ksu_") || !strncmp(iter->name, "susfs_", 6) || !strncmp(iter->name, "ksud", 4)) {
-			return 0;
-		}
-		seq_printf(m, "%px %c %s\n", value,
-			   iter->type, iter->name);
-	}
-#endif
 	return 0;
 }
 

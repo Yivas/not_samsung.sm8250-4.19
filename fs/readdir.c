@@ -21,14 +21,11 @@
 #include <linux/unistd.h>
 #include <linux/compat.h>
 #ifdef CONFIG_KSU_SUSFS_SUS_PATH
-#include <linux/susfs_def.h>
+#include <linux/susfs.h>
 #endif
 
 #include <linux/uaccess.h>
 
-#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-extern int susfs_sus_ino_for_filldir64(unsigned long ino);
-#endif
 int iterate_dir(struct file *file, struct dir_context *ctx)
 {
 	struct inode *inode = file_inode(file);
@@ -126,6 +123,9 @@ struct readdir_callback {
 	struct dir_context ctx;
 	struct old_linux_dirent __user * dirent;
 	int result;
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+	dev_t dev;
+#endif
 };
 
 static int fillonedir(struct dir_context *ctx, const char *name, int namlen,
@@ -136,6 +136,10 @@ static int fillonedir(struct dir_context *ctx, const char *name, int namlen,
 	struct old_linux_dirent __user * dirent;
 	unsigned long d_ino;
 
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+	if (susfs_should_hide_dirent(buf->dev, ino))
+		return 0;
+#endif
 	if (buf->result)
 		return -EINVAL;
 	buf->result = verify_dirent_name(name, namlen);
@@ -176,6 +180,9 @@ SYSCALL_DEFINE3(old_readdir, unsigned int, fd,
 
 	if (!f.file)
 		return -EBADF;
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+	buf.dev = file_inode(f.file)->i_sb->s_dev;
+#endif
 
 	error = iterate_dir(f.file, &buf.ctx);
 	if (buf.result)
@@ -204,6 +211,9 @@ struct getdents_callback {
 	struct linux_dirent __user * previous;
 	int count;
 	int error;
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+	dev_t dev;
+#endif
 };
 
 static int filldir(struct dir_context *ctx, const char *name, int namlen,
@@ -217,7 +227,7 @@ static int filldir(struct dir_context *ctx, const char *name, int namlen,
 		sizeof(long));
 
 #ifdef CONFIG_KSU_SUSFS_SUS_PATH
-	if (likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC) && susfs_sus_ino_for_filldir64(ino)) {
+	if (susfs_should_hide_dirent(buf->dev, ino)) {
 		return 0;
 	}
 #endif
@@ -278,6 +288,9 @@ SYSCALL_DEFINE3(getdents, unsigned int, fd,
 	f = fdget_pos(fd);
 	if (!f.file)
 		return -EBADF;
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+	buf.dev = file_inode(f.file)->i_sb->s_dev;
+#endif
 
 	error = iterate_dir(f.file, &buf.ctx);
 	if (error >= 0)
@@ -299,6 +312,9 @@ struct getdents_callback64 {
 	struct linux_dirent64 __user * previous;
 	int count;
 	int error;
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+	dev_t dev;
+#endif
 };
 
 static int filldir64(struct dir_context *ctx, const char *name, int namlen,
@@ -311,7 +327,7 @@ static int filldir64(struct dir_context *ctx, const char *name, int namlen,
 		sizeof(u64));
 
 #ifdef CONFIG_KSU_SUSFS_SUS_PATH
-	if (likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC) && susfs_sus_ino_for_filldir64(ino)) {
+	if (susfs_should_hide_dirent(buf->dev, ino)) {
 		return 0;
 	}
 #endif
@@ -369,6 +385,9 @@ int ksys_getdents64(unsigned int fd, struct linux_dirent64 __user *dirent,
 	f = fdget_pos(fd);
 	if (!f.file)
 		return -EBADF;
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+	buf.dev = file_inode(f.file)->i_sb->s_dev;
+#endif
 
 	error = iterate_dir(f.file, &buf.ctx);
 	if (error >= 0)
@@ -404,6 +423,9 @@ struct compat_readdir_callback {
 	struct dir_context ctx;
 	struct compat_old_linux_dirent __user *dirent;
 	int result;
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+	dev_t dev;
+#endif
 };
 
 static int compat_fillonedir(struct dir_context *ctx, const char *name,
@@ -418,7 +440,7 @@ static int compat_fillonedir(struct dir_context *ctx, const char *name,
 	if (buf->result)
 		return -EINVAL;
 #ifdef CONFIG_KSU_SUSFS_SUS_PATH
-	if (likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC) && susfs_sus_ino_for_filldir64(ino)) {
+	if (susfs_should_hide_dirent(buf->dev, ino)) {
 		return 0;
 	}
 #endif
@@ -460,6 +482,9 @@ COMPAT_SYSCALL_DEFINE3(old_readdir, unsigned int, fd,
 
 	if (!f.file)
 		return -EBADF;
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+	buf.dev = file_inode(f.file)->i_sb->s_dev;
+#endif
 
 	error = iterate_dir(f.file, &buf.ctx);
 	if (buf.result)
@@ -482,6 +507,9 @@ struct compat_getdents_callback {
 	struct compat_linux_dirent __user *previous;
 	int count;
 	int error;
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+	dev_t dev;
+#endif
 };
 
 static int compat_filldir(struct dir_context *ctx, const char *name, int namlen,
@@ -494,14 +522,13 @@ static int compat_filldir(struct dir_context *ctx, const char *name, int namlen,
 	int reclen = ALIGN(offsetof(struct compat_linux_dirent, d_name) +
 		namlen + 2, sizeof(compat_long_t));
 
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+	if (susfs_should_hide_dirent(buf->dev, ino))
+		return 0;
+#endif
 	buf->error = -EINVAL;	/* only used if we fail.. */
 	if (reclen > buf->count)
 		return -EINVAL;
-#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-	if (likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC) && susfs_sus_ino_for_filldir64(ino)) {
-		return 0;
-	}
-#endif
 	d_ino = ino;
 	if (sizeof(d_ino) < sizeof(ino) && d_ino != ino) {
 		buf->error = -EOVERFLOW;
@@ -553,6 +580,9 @@ COMPAT_SYSCALL_DEFINE3(getdents, unsigned int, fd,
 	f = fdget_pos(fd);
 	if (!f.file)
 		return -EBADF;
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+	buf.dev = file_inode(f.file)->i_sb->s_dev;
+#endif
 
 	error = iterate_dir(f.file, &buf.ctx);
 	if (error >= 0)
