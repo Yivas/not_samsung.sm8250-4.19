@@ -1,6 +1,7 @@
 #include <linux/cred.h>
 #include <linux/fs.h>
 #include <linux/hashtable.h>
+#include <linux/mount.h>
 #include <linux/mutex.h>
 #include <linux/namei.h>
 #include <linux/path.h>
@@ -10,9 +11,13 @@
 #include <linux/susfs.h>
 #include <linux/uaccess.h>
 
-#include "../drivers/kernelsu/policy/allowlist.h"
-
+#define SUSFS_PER_USER_RANGE 100000
+#define SUSFS_FIRST_APPLICATION_UID 10000
+#define SUSFS_LAST_APPLICATION_UID 19999
 #define SUSFS_FIRST_APP_ZYGOTE_ISOLATED_UID 90000
+#define SUSFS_LAST_ISOLATED_UID 99999
+
+extern bool __ksu_is_allow_uid(uid_t uid);
 
 struct st_susfs_sus_path_hlist {
 	dev_t target_dev;
@@ -45,11 +50,12 @@ static bool susfs_is_sus_path(dev_t dev, unsigned long ino)
 static bool susfs_should_hide_for_current(void)
 {
 	uid_t uid = current_uid().val;
-	uid_t appid = uid % PER_USER_RANGE;
+	uid_t appid = uid % SUSFS_PER_USER_RANGE;
 
-	if (!is_appuid(uid) &&
+	if ((appid < SUSFS_FIRST_APPLICATION_UID ||
+	     appid > SUSFS_LAST_APPLICATION_UID) &&
 	    (appid < SUSFS_FIRST_APP_ZYGOTE_ISOLATED_UID ||
-	     appid > LAST_ISOLATED_UID))
+	     appid > SUSFS_LAST_ISOLATED_UID))
 		return false;
 
 	return !__ksu_is_allow_uid(uid);
