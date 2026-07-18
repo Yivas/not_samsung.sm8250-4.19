@@ -33,22 +33,96 @@ jobs:
           sudo apt-get install -y gcc-aarch64-linux-gnu
 
       - name: Build kernel
-        run: ./build.sh
+        run: |
+          set -o pipefail
+          ./build.sh 2>&1 | tee build.log
 
       - name: Verify source and package
         run: |
           set -euo pipefail
+          check() {
+            if ! "$@"; then
+              printf '::error::Check failed:'
+              printf ' %q' "$@"
+              printf '\n'
+              exit 1
+            fi
+          }
+          reject() {
+            local rc
+            if "$@"; then
+              printf '::error::Forbidden match:'
+              printf ' %q' "$@"
+              printf '\n'
+              exit 1
+            else
+              rc=$?
+              if [ "$rc" -ne 1 ]; then
+                printf '::error::Check errored (%d):' "$rc"
+                printf ' %q' "$@"
+                printf '\n'
+                exit "$rc"
+              fi
+            fi
+          }
+
           zip_file=$(find . -maxdepth 1 -name "YivasKernel-${DEVICE}-SUSFS-v2-${SUSFS_PROFILE}-*.zip" -print -quit)
-          test -n "$zip_file"
+          check test -n "$zip_file"
           unzip -Z1 "$zip_file" > zip-files.txt
-          grep -qx 'Image' zip-files.txt
-          grep -qx 'anykernel.sh' zip-files.txt
-          ! grep -Eq '(^|/)(dtbo|vbmeta)(\.img)?$' zip-files.txt
-          ! grep -Eq 'flash_generic|patch_cmdline|/by-name/(dtbo|vbmeta)' packaging/anykernel.sh
-          grep -a -i -q 'kernelsu' out/arch/arm64/boot/Image
-          grep -a -i -q 'susfs' out/arch/arm64/boot/Image
-          sha256sum "$zip_file" out/arch/arm64/boot/Image > SHA256SUMS
+          check grep -qx 'Image' zip-files.txt
+          check grep -qx 'anykernel.sh' zip-files.txt
+          check grep -qx 'META-INF/com/google/android/update-binary' zip-files.txt
+          reject grep -Eq '(^|/)(dtbo|vbmeta)(\.img)?$|(^|/)vendor_boot(\.img)?$' zip-files.txt
+          reject grep -Eq 'flash_generic|patch_cmdline|/by-name/(dtbo|vbmeta|vendor_boot)|(^|[^A-Z_])dd[[:space:]]' packaging/anykernel.sh
+          check test "$(grep -c '^BLOCK=' packaging/anykernel.sh)" -eq 1
+          check grep -Fxq 'BLOCK=/dev/block/platform/soc/1d84000.ufshc/by-name/boot;' packaging/anykernel.sh
+          check cmp -s out/arch/arm64/boot/Image <(unzip -p "$zip_file" Image)
+          check cmp -s packaging/anykernel.sh <(unzip -p "$zip_file" anykernel.sh)
+
+          file out/arch/arm64/boot/Image | tee image.file
+          check grep -q 'Linux kernel ARM64 boot executable Image' image.file
+
           cp out/.config kernel.config
+          check grep -qx 'CONFIG_KSU=y' kernel.config
+          check grep -qx 'CONFIG_KSU_SUSFS=y' kernel.config
+          check grep -qx 'CONFIG_KSU_SUSFS_SUS_PATH=y' kernel.config
+          if [ "$SUSFS_PROFILE" = safe ]; then
+            check grep -qx '# CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS is not set' kernel.config
+            expected_features='CONFIG_KSU_SUSFS_SUS_PATH=y'
+          else
+            check grep -qx 'CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y' kernel.config
+            expected_features=$(printf '%s\n' \
+              'CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y' \
+              'CONFIG_KSU_SUSFS_SUS_PATH=y')
+          fi
+          enabled_features=$(grep '^CONFIG_KSU_SUSFS_.*=y$' kernel.config | LC_ALL=C sort)
+          check test "$enabled_features" = "$expected_features"
+
+          check grep -Eq '[[:space:]][Tt][[:space:]]__ksu_is_allow_uid$' out/System.map
+          check grep -Eq '[[:space:]][Tt][[:space:]]susfs_add_sus_path$' out/System.map
+          grep -E '[[:space:]][Tt][[:space:]](__ksu_is_allow_uid|susfs_add_sus_path)$' \
+            out/System.map > binary-symbols.txt
+
+          {
+            printf 'device=%s\n' "$DEVICE"
+            printf 'profile=%s\n' "$SUSFS_PROFILE"
+            printf 'source_sha=%s\n' "$(git rev-parse HEAD)"
+            printf 'kernelsu_sha=%s\n' "$(git -C KernelSU rev-parse HEAD)"
+            printf 'anykernel3_sha=%s\n' "$(git -C AnyKernel3 rev-parse HEAD)"
+            printf 'zip=%s\n' "${zip_file#./}"
+          } > BUILD-MANIFEST.txt
+
+          sha256sum \
+            "$zip_file" \
+            out/arch/arm64/boot/Image \
+            out/System.map \
+            out/Module.symvers \
+            kernel.config \
+            BUILD-MANIFEST.txt \
+            binary-symbols.txt \
+            build.log \
+            image.file \
+            zip-files.txt > SHA256SUMS
           echo "zip_file=$zip_file" >> "$GITHUB_ENV"
 
       - name: Upload audit artifact
@@ -58,7 +132,13 @@ jobs:
           path: |
             ${{ env.zip_file }}
             out/arch/arm64/boot/Image
+            out/System.map
+            out/Module.symvers
             kernel.config
+            BUILD-MANIFEST.txt
+            binary-symbols.txt
+            build.log
+            image.file
             SHA256SUMS
             zip-files.txt
           retention-days: 14
