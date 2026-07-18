@@ -76,6 +76,8 @@ jobs:
           reject grep -Eq 'flash_generic|patch_cmdline|/by-name/(dtbo|vbmeta|vendor_boot)|(^|[^A-Z_])dd[[:space:]]' packaging/anykernel.sh
           check test "$(grep -c '^BLOCK=' packaging/anykernel.sh)" -eq 1
           check grep -Fxq 'BLOCK=/dev/block/platform/soc/1d84000.ufshc/by-name/boot;' packaging/anykernel.sh
+          check test "$(grep -c '^NO_VBMETA_PARTITION_PATCH=' packaging/anykernel.sh)" -eq 1
+          check grep -Fxq 'NO_VBMETA_PARTITION_PATCH=1;' packaging/anykernel.sh
           check cmp -s out/arch/arm64/boot/Image <(unzip -p "$zip_file" Image)
           check cmp -s packaging/anykernel.sh <(unzip -p "$zip_file" anykernel.sh)
 

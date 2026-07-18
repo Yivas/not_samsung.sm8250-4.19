@@ -25,6 +25,7 @@ BLOCK=/dev/block/platform/soc/1d84000.ufshc/by-name/boot;
 IS_SLOT_DEVICE=0;
 RAMDISK_COMPRESSION=auto;
 PATCH_VBMETA_FLAG=0;
+NO_VBMETA_PARTITION_PATCH=1;
 NO_MAGISK_CHECK=1;
 
 . tools/ak3-core.sh;
