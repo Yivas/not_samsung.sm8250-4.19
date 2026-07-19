@@ -74,6 +74,7 @@ jobs:
           check grep -qx 'META-INF/com/google/android/update-binary' zip-files.txt
           reject grep -Eq '(^|/)(dtbo|vbmeta)(\.img)?$|(^|/)vendor_boot(\.img)?$' zip-files.txt
           reject grep -Eq 'flash_generic|patch_cmdline|/by-name/(dtbo|vbmeta|vendor_boot)|(^|[^A-Z_])dd[[:space:]]' packaging/anykernel.sh
+          reject grep -Eq 'FAKE_UNAME|should_spoof_uname|fake uname:' kernel/sys.c
           check test "$(grep -c '^BLOCK=' packaging/anykernel.sh)" -eq 1
           check grep -Fxq 'BLOCK=/dev/block/platform/soc/1d84000.ufshc/by-name/boot;' packaging/anykernel.sh
           check test "$(grep -c '^NO_VBMETA_PARTITION_PATCH=' packaging/anykernel.sh)" -eq 1
@@ -83,6 +84,7 @@ jobs:
 
           file out/arch/arm64/boot/Image | tee image.file
           check grep -q 'Linux kernel ARM64 boot executable Image' image.file
+          reject grep -aFq 'fake uname:' out/arch/arm64/boot/Image
 
           cp out/.config kernel.config
           check grep -qx 'CONFIG_KSU=y' kernel.config
