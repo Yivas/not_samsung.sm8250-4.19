@@ -2,13 +2,27 @@ name: Build for r8q
 
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Build mode
+        required: true
+        default: standard
+        type: choice
+        options:
+          - standard
+          - extra-dim
 
 permissions:
   contents: read
 
 jobs:
   build-r8q:
+    if: inputs.mode == 'standard'
     uses: ./.github/workflows/build.yml
     with:
       device: r8q
       profile: safe
+
+  prepare-extra-dim:
+    if: inputs.mode == 'extra-dim'
+    uses: ./.github/workflows/extra-dim.yml

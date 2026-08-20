@@ -1,7 +1,7 @@
 name: Prepare Extra dim pair (NO-FLASH)
 
 on:
-  workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
