@@ -24,9 +24,14 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 64
+          filter: blob:none
           path: orchestrator
           persist-credentials: false
           ref: ${{ github.sha }}
+          sparse-checkout: |
+            .github/workflows
+            ci
+          sparse-checkout-cone-mode: true
           submodules: false
 
       - name: Verify trusted workflow source
@@ -55,11 +60,11 @@ jobs:
           set -euo pipefail
           mkdir -p work
           source_repo=$(git -C orchestrator remote get-url origin)
-          git clone --no-local --no-checkout orchestrator work/control
-          git clone --no-local --no-checkout orchestrator work/candidate
-          git -C work/control remote set-url origin "$source_repo"
-          git -C work/candidate remote set-url origin "$source_repo"
+          git clone --filter=blob:none --depth=64 --single-branch \
+            --branch susfs-v2-safe "$source_repo" work/control
           git -C work/control checkout --detach "$CONTROL_SHA"
+          git clone --shared --no-checkout work/control work/candidate
+          git -C work/candidate remote set-url origin "$source_repo"
           git -C work/candidate checkout --detach "$CANDIDATE_SHA"
           git -C work/control submodule update --init --recursive
           git -C work/candidate submodule update --init --recursive
