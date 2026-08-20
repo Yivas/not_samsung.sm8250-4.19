@@ -11,7 +11,7 @@ env:
   CANDIDATE_SHA: eb8b09307137e78b14710b88b5c310b7938e6825
   DEVICE: r8q
   SUSFS_PROFILE: safe
-  VERIFIER_SHA256: 3d954091a997a943f8e09930f1311b9ee2580f046ebf54d8c4f5f23e1d54321e
+  VERIFIER_SHA256: 1c03fb83461337f7ee7ff53e41f68a7c7a20a48e2404ce7f33532694afc7e9d0
 
 jobs:
   build-pair:
@@ -135,7 +135,7 @@ jobs:
             printf 'workflow_sha=%s\n' "$GITHUB_SHA"
             printf 'workflow_run=%s\n' "$GITHUB_RUN_ID"
           } > results/NO-FLASH.txt
-          sha256sum results/NO-FLASH.txt >> results/COMPARISON-SHA256SUMS
+          (cd results && sha256sum NO-FLASH.txt >> COMPARISON-SHA256SUMS)
           rm results/control-a/kernel.zip \
              results/control-b/kernel.zip \
              results/candidate/kernel.zip

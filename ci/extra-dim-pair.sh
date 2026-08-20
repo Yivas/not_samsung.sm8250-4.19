@@ -124,10 +124,11 @@ verify_source() {
         printf 'flash_authorized=no\n'
     } > "$output_dir/SOURCE-VERIFICATION.txt"
 
-    sha256sum \
-        "$output_dir/SOURCE-VERIFICATION.txt" \
-        "$output_dir/candidate-revert-572fa83.patch" \
-        > "$output_dir/SOURCE-SHA256SUMS"
+    (
+        cd "$output_dir"
+        sha256sum SOURCE-VERIFICATION.txt candidate-revert-572fa83.patch \
+            > SOURCE-SHA256SUMS
+    )
 }
 
 write_zip_member_hashes() {
@@ -300,8 +301,8 @@ archive_build() {
     source_repo=$(git -C "$build_dir" remote get-url origin)
     source_tree=$(git -C "$build_dir" rev-parse HEAD^{tree})
     source_parent=$(git -C "$build_dir" rev-parse HEAD^)
-    patch_sha=$(git -C "$build_dir" show --format= --no-ext-diff --binary HEAD |
-        sha256sum | awk '{print $1}')
+    patch_sha=$(git -C "$build_dir" diff --no-ext-diff --full-index --binary \
+        "$expected_sha^" "$expected_sha" | sha256sum | awk '{print $1}')
 
     {
         printf 'status=NO-FLASH\n'
@@ -333,23 +334,15 @@ archive_build() {
         printf 'flash_authorized=no\n'
     } > "$output_dir/BUILD-MANIFEST.txt"
 
-    sha256sum \
-        "$output_dir/kernel-zip-sha256.txt" \
-        "$output_dir/Image" \
-        "$output_dir/System.map" \
-        "$output_dir/Module.symvers" \
-        "$output_dir/kernel.config" \
-        "$output_dir/BUILD-MANIFEST.txt" \
-        "$output_dir/binary-symbols.txt" \
-        "$output_dir/build.log" \
-        "$output_dir/image.file" \
-        "$output_dir/zip-files.txt" \
-        "$output_dir/zip-member-sha256.txt" \
-        "$output_dir/clang-version.txt" \
-        "$output_dir/clang-sha256.txt" \
-        "$output_dir/image-sensitive-strings.txt" \
-        "$output_dir/build-packages.txt" \
-        > "$output_dir/SHA256SUMS"
+    (
+        cd "$output_dir"
+        sha256sum \
+            kernel-zip-sha256.txt Image System.map Module.symvers \
+            kernel.config BUILD-MANIFEST.txt binary-symbols.txt build.log \
+            image.file zip-files.txt zip-member-sha256.txt clang-version.txt \
+            clang-sha256.txt image-sensitive-strings.txt build-packages.txt \
+            > SHA256SUMS
+    )
 }
 
 compare_builds() {
@@ -406,10 +399,11 @@ compare_builds() {
         printf 'flash_authorized=no\n'
     } > "$output_dir/COMPARISON-MANIFEST.txt"
 
-    sha256sum \
-        "$output_dir/COMPARISON-MANIFEST.txt" \
-        "$output_dir/non-image-member.diff" \
-        > "$output_dir/COMPARISON-SHA256SUMS"
+    (
+        cd "$output_dir"
+        sha256sum COMPARISON-MANIFEST.txt non-image-member.diff \
+            > COMPARISON-SHA256SUMS
+    )
 }
 
 usage() {
