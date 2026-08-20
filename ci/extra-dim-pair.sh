@@ -282,7 +282,7 @@ archive_build() {
 
     file "$image_file" > "$output_dir/image.file"
     "$clang_file" --version > "$output_dir/clang-version.txt"
-    sha256sum "$clang_file" > "$output_dir/clang-sha256.txt"
+    printf '%s\n' "$(sha256_file "$clang_file")" > "$output_dir/clang-sha256.txt"
     strings -n 4 "$image_file" |
         grep -E 'skip_initramfs|fake uname:|KernelSU|v1\.5\.5' \
         > "$output_dir/image-sensitive-strings.txt" || true
