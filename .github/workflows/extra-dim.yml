@@ -60,10 +60,10 @@ jobs:
           set -euo pipefail
           mkdir -p work
           source_repo=$(git -C orchestrator remote get-url origin)
-          git clone --filter=blob:none --depth=64 --single-branch \
+          git clone --no-checkout --depth=64 --single-branch \
             --branch susfs-v2-safe "$source_repo" work/control
           git -C work/control checkout --detach "$CONTROL_SHA"
-          git clone --shared --no-checkout work/control work/candidate
+          git clone --no-local --no-checkout work/control work/candidate
           git -C work/candidate remote set-url origin "$source_repo"
           git -C work/candidate checkout --detach "$CANDIDATE_SHA"
           git -C work/control submodule update --init --recursive
