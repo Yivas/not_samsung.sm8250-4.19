@@ -3528,9 +3528,10 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 	 */
 	_sde_plane_sspp_atomic_check_mode_changed(psde, state,
 								old_state);
-	if (is_aosp)
+	if (is_aosp) {
 		_sde_plane_set_fod_dim_alpha(psde, pstate);
-	_sde_plane_set_csc_pcc(psde, pstate, crtc);
+		_sde_plane_set_csc_pcc(psde, pstate, crtc);
+	}
 
 	/* re-program the output rects always if partial update roi changed */
 	if (sde_crtc_is_crtc_roi_dirty(crtc->state))

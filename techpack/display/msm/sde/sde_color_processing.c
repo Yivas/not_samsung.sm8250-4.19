@@ -7,6 +7,7 @@
 #define pr_fmt(fmt)	"%s: " fmt, __func__
 
 #include <linux/dma-buf.h>
+#include <linux/rom_notifier.h>
 #include <linux/string.h>
 #include <drm/msm_drm_pp.h>
 #include "sde_color_processing.h"
@@ -1458,8 +1459,10 @@ static void sde_cp_crtc_setfeature(struct sde_cp_node *prop_node,
 			pcc_cfg = blob->data;
 			if (pcc_cfg->r.c == 0 && pcc_cfg->b.c == 0 && pcc_cfg->g.c == 0) {
 				cstate->color_invert_on = false;
-				hw_cfg.payload = NULL;
-				hw_cfg.len = 0;
+				if (is_aosp) {
+					hw_cfg.payload = NULL;
+					hw_cfg.len = 0;
+				}
 			} else
 				cstate->color_invert_on = true;
 		}
